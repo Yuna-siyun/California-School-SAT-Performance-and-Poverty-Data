@@ -1,0 +1,16 @@
+county,school,avg_total,rank_in_county,county_avg,diff_from_avg,frpm_pct,is_charter
+Los Angeles,Whitney (Gretchen) High,1987,1,1336.2,650.8,18.9,0
+Alameda,Mission San Jose High,2023,1,1429.8,593.2,3.4,0
+Los Angeles,San Marino High,1871,2,1336.2,534.8,4.5,0
+Los Angeles,Rancho Learning Center (Alternative),1847,3,1336.2,510.8,8.1,0
+Los Angeles,La Canada High,1836,4,1336.2,499.8,1.0,0
+Los Angeles,Palos Verdes Peninsula High,1836,4,1336.2,499.8,3.3,0
+Los Angeles,Arcadia High,1805,6,1336.2,468.8,18.9,0
+Los Angeles,Academy of the Canyons,1797,7,1336.2,460.8,10.6,0
+Fresno,University High,1784,1,1328.8,455.2,10.1,1
+Alameda,Piedmont High,1875,2,1429.8,445.2,0.8,0
+San Francisco,Lowell High,1825,1,1383.4,441.6,47.5,0
+Contra Costa,Miramonte High,1894,1,1455.4,438.6,1.5,0
+Los Angeles,California Academy of Mathematics and Science,1762,8,1336.2,425.8,44.7,0
+Los Angeles,Beverly Hills High,1751,9,1336.2,414.8,7.5,0
+Contra Costa,Dougherty Valley High,1868,2,1455.4,412.6,5.9,0
