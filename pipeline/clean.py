@@ -123,7 +123,7 @@ def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
 
         # errors="coerce" turns unparseable values into NaT instead of raising,
         # so one bad row cannot stop the whole pipeline.
-        out["open_date"] = pd.to_datetime(out["open_date"], errors="coerce")
+        out["open_date"] = pd.to_datetime(out["open_date"], format="%Y-%m-%d", errors="coerce")
 
     return out
 
