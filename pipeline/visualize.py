@@ -170,19 +170,22 @@ def plot_score_distribution(df: pd.DataFrame) -> plt.Figure:
     return fig
 
 
-def plot_schools_above_county_average(df: pd.DataFrame) -> plt.Figure:
-    """Q4: Horizontal bars of how far each school sits above its county mean.
+def plot_top_schools_by_poverty_quartile(df: pd.DataFrame) -> plt.Figure:
+    """Q4: Show the strongest schools in each poverty quartile.
+
+    Grouping by quartile keeps each school next to the peers it was ranked
+    against, so a high bar in the poorest quartile reads as what it is.
 
     Args:
-        df: Output of analyze_schools_above_county_average().
+        df: Output of analyze_top_schools_by_poverty_quartile().
 
     Returns:
         Figure. Not saved or shown.
     """
-    fig, ax = plt.subplots(figsize=(9, 7))
+    fig, ax = plt.subplots(figsize=(10, 8))
 
-    # Reverse the order so the largest gap lands at the top of the chart.
-    plot_df = df.iloc[::-1]
+    # Reverse so the least poor quartile ends up at the top of the chart.
+    plot_df = df.iloc[::-1].reset_index(drop=True)
 
     colors = [
         CHARTER_COLOR if charter == 1 else REGULAR_COLOR
@@ -190,25 +193,45 @@ def plot_schools_above_county_average(df: pd.DataFrame) -> plt.Figure:
     ]
 
     positions = range(len(plot_df))
-    ax.barh(positions, plot_df["diff_from_avg"], color=colors)
+    ax.barh(positions, plot_df["avg_total"], color=colors)
 
     labels = [
-        f"{row.school[:32]} ({row.county})" for row in plot_df.itertuples()
+        f"Q{row.poverty_quartile}  {row.school[:30]} ({row.frpm_pct:.0f}%)"
+        for row in plot_df.itertuples()
     ]
     ax.set_yticks(list(positions))
     ax.set_yticklabels(labels, fontsize=9)
-    ax.set_xlabel("Points above the county average (SAT total)")
-    ax.set_title("Schools that most exceed their county average")
+    ax.set_xlabel("Average SAT total (out of 2400)")
+    ax.set_title("Strongest schools within each poverty quartile")
     ax.grid(True, axis="x", alpha=0.2)
 
-    # A zero line clarifies that these values are differences, not scores.
-    ax.axvline(0, color=NEUTRAL_COLOR, linewidth=0.8)
+    # Each quartile's own average, so the bars can be read against the right
+    # baseline rather than against the whole state.
+    for pos, row in zip(positions, plot_df.itertuples()):
+        ax.plot(
+            [row.quartile_avg, row.quartile_avg],
+            [pos - 0.4, pos + 0.4],
+            color=NEUTRAL_COLOR,
+            linewidth=1.5,
+        )
 
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=CHARTER_COLOR),
         plt.Rectangle((0, 0), 1, 1, color=REGULAR_COLOR),
     ]
-    ax.legend(handles, ["Charter", "Regular"], loc="lower right")
+    ax.legend(
+        handles + [plt.Line2D([0], [0], color=NEUTRAL_COLOR, linewidth=1.5)],
+        ["Charter", "Regular", "Quartile average"],
+        loc="lower right",
+    )
+
+    ax.annotate(
+        "Label shows quartile, school, and poverty rate",
+        xy=(0.02, 0.02),
+        xycoords="axes fraction",
+        fontsize=9,
+        color=NEUTRAL_COLOR,
+    )
 
     fig.tight_layout()
     return fig

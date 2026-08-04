@@ -51,9 +51,9 @@ def main() -> None:
             visualize.plot_score_distribution,
         ),
         (
-            "q4_above_county_average",
-            analyze.analyze_schools_above_county_average,
-            visualize.plot_schools_above_county_average,
+            "q4_top_by_poverty_quartile",
+            analyze.analyze_top_schools_by_poverty_quartile,
+            visualize.plot_top_schools_by_poverty_quartile,
         ),
     ]
 

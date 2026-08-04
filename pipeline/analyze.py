@@ -137,19 +137,22 @@ def analyze_score_distribution_by_poverty(conn) -> pd.DataFrame:
     return pd.read_sql(sql, conn, params=(SCHOOL_RECORD_TYPE,))
 
 
-def analyze_schools_above_county_average(conn, top_n: int = 15) -> pd.DataFrame:
-    """Q4: Find the schools that most exceed their own county's average.
+def analyze_top_schools_by_poverty_quartile(conn, top_n: int = 4) -> pd.DataFrame:
+    """Q4: Find the strongest schools within each poverty quartile.
 
-    Uses RANK and AVG as window functions partitioned by county, so each
-    school is measured against its local peers rather than the whole state.
+    Ranking against county averages was tried first, but that mostly surfaced
+    wealthy enclaves inside poor counties: it measured inequality within a
+    county rather than a school outperforming its circumstances. Partitioning
+    by poverty quartile instead compares each school against others facing a
+    similar level of need.
 
     Args:
         conn: Open sqlite3 connection.
-        top_n: How many schools to return.
+        top_n: How many schools to return per quartile.
 
     Returns:
-        DataFrame with county, school, avg_total, rank_in_county, county_avg,
-        diff_from_avg, frpm_pct, and is_charter.
+        DataFrame with poverty_quartile, school, county, frpm_pct, avg_total,
+        rank_in_quartile, quartile_avg, diff_from_avg, and is_charter.
     """
     sql = f"""
         WITH school_scores AS (
@@ -163,34 +166,36 @@ def analyze_schools_above_county_average(conn, top_n: int = 15) -> pd.DataFrame:
             JOIN frpm f      ON s.CDSCode = {FRPM_KEY}
             WHERE t.rtype = ?
               AND t.AvgScrMath IS NOT NULL
+              AND f."Percent (%) Eligible FRPM (K-12)" IS NOT NULL
+        ),
+        bucketed AS (
+            SELECT *,
+                   NTILE(4) OVER (ORDER BY frpm_pct) AS poverty_quartile
+            FROM school_scores
         ),
         ranked AS (
             SELECT *,
-                   RANK()   OVER (PARTITION BY county ORDER BY avg_total DESC)
-                                                      AS rank_in_county,
-                   AVG(avg_total) OVER (PARTITION BY county)
-                                                      AS county_avg,
-                   COUNT(*) OVER (PARTITION BY county) AS county_size
-            FROM school_scores
+                   RANK() OVER (
+                       PARTITION BY poverty_quartile ORDER BY avg_total DESC
+                   )                                          AS rank_in_quartile,
+                   AVG(avg_total) OVER (PARTITION BY poverty_quartile)
+                                                              AS quartile_avg
+            FROM bucketed
         )
-        SELECT county,
+        SELECT poverty_quartile,
                school,
+               county,
+               ROUND(frpm_pct, 1)                   AS frpm_pct,
                avg_total,
-               rank_in_county,
-               ROUND(county_avg, 1)              AS county_avg,
-               ROUND(avg_total - county_avg, 1)  AS diff_from_avg,
-               ROUND(frpm_pct, 1)                AS frpm_pct,
+               rank_in_quartile,
+               ROUND(quartile_avg, 1)               AS quartile_avg,
+               ROUND(avg_total - quartile_avg, 1)   AS diff_from_avg,
                is_charter
         FROM ranked
-        -- In a county with only two or three schools, the gap between them
-        -- becomes the deviation, which says nothing about the school.
-        WHERE county_size >= ?
-        ORDER BY diff_from_avg DESC
-        LIMIT ?
+        WHERE rank_in_quartile <= ?
+        ORDER BY poverty_quartile, rank_in_quartile
     """
-    return pd.read_sql(
-        sql, conn, params=(SCHOOL_RECORD_TYPE, MIN_SCHOOLS_FOR_RANKING, top_n)
-    )
+    return pd.read_sql(sql, conn, params=(SCHOOL_RECORD_TYPE, top_n))
 
 
 if __name__ == "__main__":
