@@ -121,9 +121,12 @@ def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
         # exactly and the intent is easy to read.
         out.loc[out["open_date"] == SENTINEL_OPEN_DATE, "open_date"] = None
 
-        # errors="coerce" turns unparseable values into NaT instead of raising,
-        # so one bad row cannot stop the whole pipeline.
-        out["open_date"] = pd.to_datetime(out["open_date"], format="%Y-%m-%d", errors="coerce")
+        # SQLite stores these as YYYY-MM-DD text. Stating the format explicitly
+        # is faster than letting pandas guess, and it rejects anything that does
+        # not match rather than guessing at an ambiguous value.
+        out["open_date"] = pd.to_datetime(
+            out["open_date"], format="%Y-%m-%d", errors="coerce"
+        )
 
     return out
 
