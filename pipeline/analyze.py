@@ -12,10 +12,9 @@ from pipeline.clean import SCHOOL_RECORD_TYPE, SENTINEL_OPEN_DATE
 # frpm splits the join key across three columns; printf restores the padding.
 FRPM_KEY = 'f."County Code" || printf(\'%05d\', f."District Code") || f."School Code"'
 
-# Counties with very few schools produce unstable averages and meaningless
-# deviations, so they are excluded from county-level comparisons.
+# Counties with very few schools produce unstable averages, so they are left out
+# of the county-level comparison.
 MIN_SCHOOLS_PER_COUNTY = 5
-MIN_SCHOOLS_FOR_RANKING = 10
 
 
 def analyze_county_poverty_vs_sat(conn) -> pd.DataFrame:
@@ -55,29 +54,30 @@ def analyze_county_poverty_vs_sat(conn) -> pd.DataFrame:
 def analyze_poverty_by_opening_era(conn) -> pd.DataFrame:
     """Q2: Track the poverty level of the areas new schools opened in.
 
-    Uses strftime to group schools by the decade they opened. Charter and
-    regular schools are kept separate because their trends diverge.
+    Uses strftime to group schools by when they opened. Charter and regular
+    schools are kept separate because their trends diverge. Charter schools only
+    became legal in 1992, so everything earlier is grouped as "Before 2000".
 
-    SAT scores are not needed here, so satscores is left out and the sample
-    is roughly three times larger.
+    SAT scores are not needed here, so satscores is left out and the sample is
+    roughly three times larger.
 
     Args:
         conn: Open sqlite3 connection.
 
     Returns:
         DataFrame with era, school_type, n_schools, and avg_frpm_pct.
+        avg_frpm_pct keeps two decimals so display rounding stays accurate.
     """
     sql = f"""
         SELECT CASE
-                 WHEN strftime('%Y', s.OpenDate) < '1990' THEN 'Before 1990'
-                 WHEN strftime('%Y', s.OpenDate) < '2000' THEN '1990s'
+                 WHEN strftime('%Y', s.OpenDate) < '2000' THEN 'Before 2000'
                  WHEN strftime('%Y', s.OpenDate) < '2010' THEN '2000s'
                  ELSE '2010s'
                END                                            AS era,
                CASE WHEN s.Charter = 1 THEN 'Charter' ELSE 'Regular' END
                                                               AS school_type,
                COUNT(*)                                       AS n_schools,
-               ROUND(AVG(f."Percent (%) Eligible FRPM (K-12)") * 100, 1)
+               ROUND(AVG(f."Percent (%) Eligible FRPM (K-12)") * 100, 2)
                                                               AS avg_frpm_pct
         FROM schools s
         JOIN frpm f ON s.CDSCode = {FRPM_KEY}
@@ -96,20 +96,19 @@ def analyze_score_distribution_by_poverty(conn) -> pd.DataFrame:
     """Q3: Describe how achievement is distributed across poverty quartiles.
 
     Builds the joined set in a CTE, assigns quartiles with NTILE, then
-    aggregates. The quartile boundaries have to exist before grouping, which
-    is why a CTE is needed rather than a plain GROUP BY.
+    aggregates. The quartile boundaries have to exist before grouping, which is
+    why a CTE is needed rather than a plain GROUP BY.
 
     Args:
         conn: Open sqlite3 connection.
 
     Returns:
-        DataFrame with poverty_quartile, n_schools, and the min, mean, and max
-        of pct_ge_1500 for each quartile.
+        DataFrame with poverty_quartile, n_schools, the poverty range of each
+        quartile, and the min, mean and max of pct_ge_1500 inside it.
     """
     sql = f"""
         WITH joined AS (
-            SELECT s.County                                   AS county,
-                   f."Percent (%) Eligible FRPM (K-12)" * 100 AS frpm_pct,
+            SELECT f."Percent (%) Eligible FRPM (K-12)" * 100 AS frpm_pct,
                    t.PctGE1500                                AS pct_ge_1500
             FROM schools s
             JOIN satscores t ON s.CDSCode = t.cds
@@ -137,13 +136,13 @@ def analyze_score_distribution_by_poverty(conn) -> pd.DataFrame:
     return pd.read_sql(sql, conn, params=(SCHOOL_RECORD_TYPE,))
 
 
-def analyze_top_schools_by_poverty_quartile(conn, top_n: int = 4) -> pd.DataFrame:
+def analyze_top_schools_by_poverty_quartile(conn, top_n: int = 3) -> pd.DataFrame:
     """Q4: Find the strongest schools within each poverty quartile.
 
     Ranking against county averages was tried first, but that mostly surfaced
     wealthy enclaves inside poor counties: it measured inequality within a
-    county rather than a school outperforming its circumstances. Partitioning
-    by poverty quartile instead compares each school against others facing a
+    county rather than a school outperforming its circumstances. Partitioning by
+    poverty quartile instead compares each school against others facing a
     similar level of need.
 
     Args:
@@ -199,15 +198,12 @@ def analyze_top_schools_by_poverty_quartile(conn, top_n: int = 4) -> pd.DataFram
 
 
 if __name__ == "__main__":
-    import os
     import sqlite3
 
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-    with sqlite3.connect("../data/cdeschools.sqlite") as conn:
+    with sqlite3.connect("data/cdeschools.sqlite") as conn:
         print("Q1:", analyze_county_poverty_vs_sat(conn).shape)
         print("Q2:", analyze_poverty_by_opening_era(conn).shape)
         print("Q3:", analyze_score_distribution_by_poverty(conn).shape)
-        print("Q4:", analyze_schools_above_county_average(conn).shape)
+        print("Q4:", analyze_top_schools_by_poverty_quartile(conn).shape)
         print()
         print(analyze_poverty_by_opening_era(conn).to_string(index=False))

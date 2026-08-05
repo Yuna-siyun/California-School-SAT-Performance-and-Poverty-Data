@@ -1,9 +1,7 @@
 era,school_type,n_schools,avg_frpm_pct
-1990s,Charter,115,49.1
-1990s,Regular,1021,57.1
-2000s,Charter,514,61.5
-2000s,Regular,1088,60.4
-2010s,Charter,395,61.5
-2010s,Regular,322,68.8
-Before 1990,Charter,3,51.8
-Before 1990,Regular,243,56.1
+2000s,Charter,514,61.47
+2000s,Regular,1088,60.39
+2010s,Charter,395,61.55
+2010s,Regular,322,68.81
+Before 2000,Charter,118,49.21
+Before 2000,Regular,1264,56.89
